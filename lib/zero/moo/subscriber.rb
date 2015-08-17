@@ -1,3 +1,4 @@
+require 'weakref'
 require 'zero/moo/publisher'
 
 module Zero
@@ -31,7 +32,7 @@ module Zero
       def on_receive &block
         listen! unless thread.instance_of? Thread
         unless @receivers 
-          ObjectSpace.define_finalizer(self, proc{ stop! })
+          ObjectSpace.define_finalizer(WeakRef.new(self), proc{ stop! })
         end
         @receivers ||= []
         @receivers << block
@@ -64,6 +65,7 @@ module Zero
       # @return [void]
       #
       def handle_callbacks message
+        logger.debug "Received message: #{message}"
         receivers.to_a.each do |block|
           block.call message
         end

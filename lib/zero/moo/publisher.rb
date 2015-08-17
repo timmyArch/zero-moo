@@ -24,7 +24,7 @@ module Zero
       def initialize **kwargs
         @address = kwargs.delete(:address)
         kwargs[:type] = 1 
-        raise MissingAddressError, 
+        raise Object.const_get("#{self.class.name}::MissingAddressError"), 
           ":address for bind was not given" unless @address
         validate_address
         validate_port
@@ -36,6 +36,7 @@ module Zero
       #
       def push! message
         bind! unless socket
+        logger.debug "Push message: #{message}"
         error? socket.send_string(message), raize: MessageError
         message
       end
@@ -60,6 +61,7 @@ module Zero
       # @return [void]
       #
       def stop!
+        logger.debug "terminating socket ..."
         if socket.respond_to? :close
           error? socket.close, raize: SocketShutdownError
         end
@@ -82,7 +84,7 @@ module Zero
         ip = IPAddr.new(address) rescue nil
         Socket.gethostbyname(address) unless ip 
       rescue SocketError => e
-        raise InvalidAddressError, 
+        raise Object.const_get("#{self.class.name}::InvalidAddressError"), 
           "Address: #{@address.inspect} is invalid. - #{e.message}"
       end
 
@@ -92,11 +94,12 @@ module Zero
       # @return [void]
       #
       def validate_port
+        clazz = Object.const_get(self.class.name+"::InvalidAddressError")
         logger.debug "Validating port: #{@address.inspect}"
         port = @address.to_s[/[^:]+$/].to_s[/\d+/]
-        raise InvalidAddressError, "Missing port in #{address}" if port.nil?
+        raise clazz, "Missing port in #{address}" if port.nil?
         unless (1024..65535).include? port.to_i
-          raise InvalidAddressError, 
+          raise clazz, 
             "Out of range. Port must be between 1024 and 65535"
         end
       end

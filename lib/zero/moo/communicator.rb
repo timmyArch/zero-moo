@@ -1,4 +1,5 @@
 require 'zero/moo'
+require 'weakref'
 require 'ffi-rzmq'
 
 Thread.abort_on_exception
@@ -24,8 +25,11 @@ module Zero
         @context = ZMQ::Context.create(type)
         raise ContextError, "Zmq context couldn't created." unless @context
         logger.debug "Add finalizer for context termination."
-        ObjectSpace.define_finalizer(self, 
-                                     proc{self.context.terminate if self.context})
+        ObjectSpace.define_finalizer(WeakRef.new(self), 
+                                     proc{
+          logger.debug "terminating context ..."
+          self.context.terminate if self.context
+        })
       end
 
       protected
