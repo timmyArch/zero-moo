@@ -24,36 +24,88 @@ module Zero
       # Add callbacks. The block will called with one 
       # argument. The message.
       #
+      # @param topics [String,String,...] Only relevant for subscriber type
+      #
       # @yield [message]
       # @yieldparam message [String]
       #
       # @return [void]
       #
-      def on_receive &block
-        listen! unless thread.instance_of? Thread
+      def on_receive *topics, &block
+        listen!(topics: topics) unless thread.instance_of? Thread
         unless @receivers 
           ObjectSpace.define_finalizer(WeakRef.new(self), proc{ stop! })
         end
         @receivers ||= []
         @receivers << block
       end
+      
+      ##
+      # Is subscriber?
+      #
+      def subscriber?
+        @type == ZMQ::SUB
+      end
+
+      ##
+      # Is puller?
+      #
+      def puller?
+        @type == ZMQ::PULL
+      end
 
       private
+     
+      ##
+      # Validating socket type and reset [@type] instance variable
+      #
+      # @param allowed [Array<Symbol>] List of allowed socket types.
+      #
+      # @return [void]
+      #
+      def validate_socket_type allowed: [:all, :any]
+        logger.debug "Validating SocketType: #{@type.inspect}"
+        @type = case @type.to_s
+                when "all" then ZMQ::SUB
+                when "any" then ZMQ::PULL
+                else
+                  raise Object.const_get("#{self.class.name}::SocketTypeError"),
+                    "Invalid socket type given. Requested any #{allowed.inspect}, "+
+                    "got #{@type.inspect}"
+                end
+      end
 
       ##
       # Bind listener.
       #
+      # @see on_receive
+      #
+      # @param topics [Array<String>] 
+      #
       # @return [void]
       #
-      def listen!
+      def listen! topics: []
         @thread = Thread.new do
-          @socket = context.socket(ZMQ::PULL)
+          @socket = context.socket(@type)
           error? socket.setsockopt(ZMQ::LINGER, 1), raize: SocketOptionError
           error? socket.connect("tcp://#{address}"), raize: ConnectError
+          if subscriber?
+            topics.each do |x|
+              error? @socket.setsockopt(ZMQ::SUBSCRIBE, x.to_s), raize: SocketOptionError
+            end
+          end
           loop do
             message = ''
-            error? socket.recv_string(message), raize: MessageError
-            handle_callbacks message
+            logger.debug "Waiting for message ... "
+            if subscriber?
+              topic = ''
+              error? socket.recv_string(topic)
+            end
+            if puller? or socket.more_parts?
+              error? socket.recv_string(message), raize: MessageError
+              logger.debug "Received message: #{message}"
+              handle_callbacks message
+            end
           end
         end
       end
@@ -65,7 +117,6 @@ module Zero
       # @return [void]
       #
       def handle_callbacks message
-        logger.debug "Received message: #{message}"
         receivers.to_a.each do |block|
           block.call message
         end

@@ -20,13 +20,15 @@ module Zero
       #
       # @params type [Fixnum] ZMQ::Context type
       #
-      def initialize type: ZMQ::REQ
+      def initialize type: 1
         logger.debug "Creating ZMQ::Context type: #{type.inspect}"
         @context = ZMQ::Context.create(type)
         raise ContextError, "Zmq context couldn't created." unless @context
         logger.debug "Add finalizer for context termination."
         ObjectSpace.define_finalizer(WeakRef.new(self), 
                                      proc{
+          logger.debug "closing socket ..." if @socket
+          error?(@socket.close) if @socket.respond_to(:close)
           logger.debug "terminating context ..."
           self.context.terminate if self.context
         })
