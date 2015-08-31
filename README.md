@@ -25,12 +25,14 @@ Or install it yourself as:
 
 ## Usage
 
+### Publisher - Subscriber
+
 **Add a subscriber: **
 
 ```ruby
  require 'zero/moo/subscriber'
  s = Zero::Moo::Subscriber address: '127.0.0.1:64000'
- s.on_receive{|message| puts message}
+ s.on_receive('topic1'){|message| puts message}
 ```
 
 **Add a publisher: **
@@ -38,8 +40,27 @@ Or install it yourself as:
 ```ruby
  require 'zero/moo/publisher'
  p = Zero::Moo::Publisher address: '127.0.0.1:64000'
+ p.push! "moo", topic: 'topic1'
+```
+
+### Pusher - Puller
+
+**Add a puller: **
+
+```ruby
+ require 'zero/moo/puller'
+ s = Zero::Moo::Puller address: '127.0.0.1:64000'
+ s.on_receive{|message| puts message}
+```
+
+**Add a pusher: **
+
+```ruby
+ require 'zero/moo/pusher'
+ p = Zero::Moo::Pusher address: '127.0.0.1:64000'
  p.push! "moo"
 ```
+
 
 
 ## Contributing
