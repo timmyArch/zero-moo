@@ -33,6 +33,35 @@ module Zero
           self.context.terminate if self.context
         })
       end
+      
+      ##
+      # Is subscriber?
+      #
+      def subscriber?
+        @type == ZMQ::SUB
+      end
+
+      ##
+      # Is puller?
+      #
+      def puller?
+        @type == ZMQ::PULL
+      end
+
+      ##
+      # Is pusher?
+      #
+      def pusher?
+        @type == ZMQ::PUSH
+      end
+
+      ##
+      # Is publisher?
+      #
+      def publisher?
+        @type == ZMQ::PUB
+      end
+      
 
       protected
 

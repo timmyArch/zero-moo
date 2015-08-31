@@ -1,10 +1,10 @@
 require 'weakref'
-require 'zero/moo/publisher'
+require 'zero/moo/abstract_publisher'
 
 module Zero
   module Moo
 
-    class Subscriber < Publisher
+    class AbstractSubscriber < AbstractPublisher
 
       class Error < Communicator::Error; end
       class MissingAddressError < Error; end
@@ -33,9 +33,6 @@ module Zero
       #
       def on_receive *topics, &block
         listen!(topics: topics) unless thread.instance_of? Thread
-        unless @receivers 
-          ObjectSpace.define_finalizer(WeakRef.new(self), proc{ stop! })
-        end
         @receivers ||= []
         @receivers << block
       end
@@ -54,7 +51,7 @@ module Zero
         @type == ZMQ::PULL
       end
 
-      private
+      protected
      
       ##
       # Validating socket type and reset [@type] instance variable
@@ -85,10 +82,11 @@ module Zero
       # @return [void]
       #
       def listen! topics: []
-        @thread = Thread.new do
+        @thread ||= Thread.new do
           @socket = context.socket(@type)
           error? socket.setsockopt(ZMQ::LINGER, 1), raize: SocketOptionError
           error? socket.connect("tcp://#{address}"), raize: ConnectError
+          ObjectSpace.define_finalizer(WeakRef.new(self), proc{ stop! })
           if subscriber?
             topics.each do |x|
               error? @socket.setsockopt(ZMQ::SUBSCRIBE, x.to_s), raize: SocketOptionError

@@ -4,8 +4,8 @@ require 'weakref'
 module Zero
   module Moo
 
-    class Publisher < Communicator
-
+    class AbstractPublisher < Communicator
+      
       class Error < Communicator::Error; end
       class MissingAddressError < Error; end
       class SocketTypeError < Error; end
@@ -14,6 +14,7 @@ module Zero
       class SocketShutdownError < Error; end
       class MessageError < Error; end
       class BindError < Error; end
+
 
       attr_reader :address, :thread, :socket
       private :thread, :socket
@@ -33,6 +34,7 @@ module Zero
         validate_address
         validate_port
         super **kwargs
+        bind! if pusher? or publisher?
       end
      
       ##
@@ -57,22 +59,8 @@ module Zero
         message
       end
       
-      ##
-      # Is pusher?
-      #
-      def pusher?
-        @type == ZMQ::PUSH
-      end
-
-      ##
-      # Is publisher?
-      #
-      def publisher?
-        @type == ZMQ::PUB
-      end
+      protected
       
-      private
-
       ##
       # Bind publisher to address.
       #
@@ -82,6 +70,7 @@ module Zero
         @socket = context.socket(@type)
         error? @socket.setsockopt(ZMQ::LINGER, 1), raize: SocketOptionError
         error? @socket.bind("tcp://#{address}"), raize: BindError
+        ObjectSpace.define_finalizer(WeakRef.new(self), proc{ stop! })
       end
 
 
@@ -120,8 +109,6 @@ module Zero
                 end
       end
 
-
-      protected
 
       ##
       # Validating Address/Host part of given address.
